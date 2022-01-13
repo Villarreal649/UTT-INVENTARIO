@@ -1,0 +1,207 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Producto;
+use Illuminate\Http\Request;
+use App\Models\Area;
+use App\Models\Tipoalta;
+use App\Models\Marca;
+use App\Models\User;
+use App\Models\Estado;
+use App\Models\Modelo;
+use App\Models\Categoria;
+use App\Models\Subcategoria;
+use DB;
+use Carbon\Carbon;
+
+/**
+ * Class ProductoController
+ * @package App\Http\Controllers
+ */
+class ProductoController extends Controller
+{
+    function __construct()
+    {
+        $this->middleware('permission:ver-producto|crear-producto|editar-producto|borrar-producto',['only'=>['index']]);
+        $this->middleware('permission:crear-producto',['only'=>['create','store']]);
+        $this->middleware('permission:editar-producto',['only'=>['edit','update']]);
+        $this->middleware('permission:borrar-producto',['only'=>['destroy']]);
+
+    }
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index(Request $request)
+    {
+        $producto = $request->get('buscarporproducto');
+        $productos = Producto::where('num_inventario',  'like', "%$producto%")->paginate(5);
+
+        return view('producto.index', compact('productos'))
+            ->with('i', (request()->input('page', 1) - 1) * $productos->perPage());
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        $now = Carbon::now();
+        $producto = new Producto();
+        $areas = Area::pluck('name','id');
+        $tipoaltas=Tipoalta::pluck('name','id');
+        $marcas = Marca::pluck('name','id');
+        $users= User::pluck('name','id');
+        $estados=Estado::pluck('estado','id');
+        $modelos=Modelo::pluck('modelo','id');
+        $categorias=Categoria::pluck('name','id');
+        $subcategorias=Subcategoria::pluck('name','id');
+
+
+        return view('producto.create', compact('producto','areas','tipoaltas','marcas','users','estados','modelos','categorias','subcategorias', 'now'));
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        request()->validate(Producto::$rules);
+
+        $producto = Producto::create($request->all());
+
+        return redirect()->route('productos.index')
+            ->with('success', 'Producto creado correctamente.');
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  int $id
+     * @return \Illuminate\Http\Response
+     */
+    public function show($id)
+    {
+        $producto = Producto::find($id);
+
+        return view('producto.show', compact('producto'));
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  int $id
+     * @return \Illuminate\Http\Response
+     */
+    public function edit($id)
+    {
+        $now = Carbon::now();
+        $producto = Producto::find($id);
+        $areas = Area::pluck('name','id');
+        $tipoaltas=Tipoalta::pluck('name','id');
+        $marcas = Marca::pluck('name','id');
+        $users= User::pluck('name','id');
+        $estados=Estado::pluck('estado','id');
+        $modelos=Modelo::pluck('modelo','id');
+        $categorias=Categoria::pluck('name','id');
+        $subcategorias=Subcategoria::pluck('name','id');
+
+
+        return view('producto.edit', compact('producto','areas','tipoaltas','marcas','users','estados','modelos','categorias','subcategorias', 'now'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @param  Producto $producto
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, Producto $producto)
+    {
+        request()->validate(Producto::$rules);
+
+        $producto->update($request->all());
+
+        return redirect()->route('productos.index')
+            ->with('success', 'Producto actualizado correctamente.');
+    }
+
+    /**
+     * @param int $id
+     * @return \Illuminate\Http\RedirectResponse
+     * @throws \Exception
+     */
+    public function destroy($id)
+    {
+        $producto = Producto::find($id)->delete();
+
+        return redirect()->route('productos.index')
+            ->with('success', 'Producto borrado correctamente.');
+    }
+      //REALIZACION DE API
+   public function innerjoin(){
+    $result = DB::table('productos')
+    ->select('productos.id','productos.num_inventario','areas.name as Area',
+    'tipoaltas.name as Tipo_Alta','productos.fecha_alta as Fecha_Alta','marcas.name as Marca',
+    'users.name as Encargado','estados.estado as Status','modelos.modelo as Modelo','productos.num_serie as Num_Serie',
+    'categorias.name as Categoria', 'subcategorias.name as Subcategoria')
+    ->join('areas', 'areas.id', '=', 'productos.area_id')
+    ->join('tipoaltas', 'tipoaltas.id', '=', 'productos.tipo_id')
+    ->join('estados', 'estados.id', '=', 'productos.status_id')
+    ->join('categorias', 'categorias.id', '=', 'productos.categoria_id')
+    ->join('modelos', 'modelos.id', '=', 'productos.modelo_id')
+    ->join('marcas', 'marcas.id', '=', 'productos.marca_id')
+    ->join('users', 'users.id', '=', 'productos.user_id')
+    ->join('subcategorias', 'subcategorias.id', '=', 'productos.subcategoria_id')
+
+    ->get();
+    return $result;
+
+}
+
+    function list(){
+
+    return Producto::all();
+}
+
+    function search($n_inventario){
+
+    $resultAPI = DB::table('productos')
+    ->select('productos.id','productos.num_inventario','areas.name as Area',
+    'tipoaltas.name as Tipo_Alta','productos.fecha_alta as Fecha_Alta','marcas.name as Marca',
+    'users.name as Resguardante','estados.estado as Estatus','modelos.modelo as Modelo','productos.num_serie as No. de Serie',
+    'categorias.name as Categoria', 'subcategorias.name as Subcategoria','productos.ubicacion as Ubicación','productos.imagen as Imagen')
+    ->join('areas', 'areas.id', '=', 'productos.area_id')
+    ->join('tipoaltas', 'tipoaltas.id', '=', 'productos.tipo_id')
+    ->join('estados', 'estados.id', '=', 'productos.status_id')
+    ->join('categorias', 'categorias.id', '=', 'productos.categoria_id')
+    ->join('modelos', 'modelos.id', '=', 'productos.modelo_id')
+    ->join('marcas', 'marcas.id', '=', 'productos.marca_id')
+    ->join('users', 'users.id', '=', 'productos.user_id')
+    ->join('subcategorias', 'subcategorias.id', '=', 'productos.subcategoria_id')
+    ->where("num_inventario",$n_inventario)->get();
+    if(count($resultAPI)){
+        return $resultAPI;
+    } else {
+        return response()->json([
+            'Mensaje' => 'No se encontraron registros'
+        ]);
+    }
+}
+public function getProduct(Request $request, $id)
+    {
+        abort_if(!request()->ajax(), 404);
+
+        $productFind = Producto::findOrFail($id);
+
+        return response()->json($productFind);
+    }
+}
